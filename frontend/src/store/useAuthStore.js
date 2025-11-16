@@ -4,7 +4,7 @@ import { io } from "socket.io-client";
 import { handleApiError } from "../lib/errorHandler";
 import { showSuccess, showError } from "../lib/notifications";
 
-const BASE_URL = import.meta.env.MODE === "development" ? "http://localhost:5002" : "/";
+const BASE_URL = import.meta.env.MODE === "development" ? "http://localhost:5002" : "https://swiftchat-backend-0tz7.onrender.com";
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
