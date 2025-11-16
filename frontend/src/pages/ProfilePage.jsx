@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { Camera, Mail, User } from "lucide-react";
+import { VALIDATION_RULES } from "../constants/validation";
+import { validateFileType, validateFileSize, fileToBase64, compressImage } from "../lib/fileUpload";
+import { getAvatarInfo } from "../lib/avatar";
 
 const ProfilePage = () => {
   const { authUser, isUpdatingProfile, updateProfile } = useAuthStore();
@@ -10,15 +13,31 @@ const ProfilePage = () => {
     const file = e.target.files[0];
     if (!file) return;
 
-    const reader = new FileReader();
+    // Validate file type
+    if (!validateFileType(file, ["image/*"])) {
+      toast.error("Please select an image file");
+      return;
+    }
 
-    reader.readAsDataURL(file);
+    // Validate file size
+    if (!validateFileSize(file, VALIDATION_RULES.MESSAGE.IMAGE.PROFILE_MAX_SIZE)) {
+      toast.error(`Image size should be less than ${VALIDATION_RULES.MESSAGE.IMAGE.PROFILE_MAX_SIZE / (1024 * 1024)}MB`);
+      return;
+    }
 
-    reader.onload = async () => {
-      const base64Image = reader.result;
+    try {
+      // Compress image for better performance
+      const compressedFile = await compressImage(file, 0.8, 400, 400);
+      
+      // Convert to base64
+      const base64Image = await fileToBase64(compressedFile);
       setSelectedImg(base64Image);
+      
       await updateProfile({ profilePic: base64Image });
-    };
+    } catch (error) {
+      console.error("Failed to update profile picture:", error);
+      toast.error("Failed to update profile picture");
+    }
   };
 
   return (
@@ -34,11 +53,33 @@ const ProfilePage = () => {
 
           <div className="flex flex-col items-center gap-4">
             <div className="relative">
-              <img
-                src={selectedImg || authUser.profilePic || "/avatar.png"}
-                alt="Profile"
-                className="size-32 rounded-full object-cover border-4 "
-              />
+              {(() => {
+                const avatarInfo = getAvatarInfo(selectedImg || authUser.profilePic, authUser.fullName);
+                
+                if (avatarInfo.hasProfilePic) {
+                  return (
+                    <img
+                      src={avatarInfo.url}
+                      alt="Profile picture"
+                      className="size-32 rounded-full object-cover border-4"
+                      onError={(e) => {
+                        e.target.src = "/avatar.png";
+                      }}
+                    />
+                  );
+                }
+                
+                return (
+                  <div 
+                    className="size-32 rounded-full flex items-center justify-center text-white text-2xl font-medium border-4"
+                    style={{
+                      background: avatarInfo.color
+                    }}
+                  >
+                    {avatarInfo.initials}
+                  </div>
+                );
+              })()}
               <label
                 htmlFor="avatar-upload"
                 className={`
@@ -48,6 +89,7 @@ const ProfilePage = () => {
                   transition-all duration-200
                   ${isUpdatingProfile ? "animate-pulse pointer-events-none" : ""}
                 `}
+                aria-label="Change profile picture"
               >
                 <Camera className="w-5 h-5 text-base-200" />
                 <input

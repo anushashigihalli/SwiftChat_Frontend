@@ -5,6 +5,8 @@ import { Link } from "react-router-dom";
 
 import AuthImagePattern from "../components/AuthImagePattern";
 import toast from "react-hot-toast";
+import { validateAndSanitizeEmail } from "../lib/sanitization";
+import { VALIDATION_RULES } from "../constants/validation";
 
 const SignUpPage = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -18,10 +20,17 @@ const SignUpPage = () => {
 
   const validateForm = () => {
     if (!formData.fullName.trim()) return toast.error("Full name is required");
+    
+    const sanitizedEmail = validateAndSanitizeEmail(formData.email);
     if (!formData.email.trim()) return toast.error("Email is required");
-    if (!/\S+@\S+\.\S+/.test(formData.email)) return toast.error("Invalid email format");
+    if (!sanitizedEmail) return toast.error("Invalid email format");
+    
     if (!formData.password) return toast.error("Password is required");
-    if (formData.password.length < 6) return toast.error("Password must be at least 6 characters");
+    if (formData.password.length < VALIDATION_RULES.USER.PASSWORD.MIN_LENGTH) return toast.error(`Password must be at least ${VALIDATION_RULES.USER.PASSWORD.MIN_LENGTH} characters`);
+    
+    // Additional security checks
+    if (formData.password.length > VALIDATION_RULES.USER.PASSWORD.MAX_LENGTH) return toast.error(`Password is too long. Maximum ${VALIDATION_RULES.USER.PASSWORD.MAX_LENGTH} characters allowed.`);
+    if (formData.fullName.length > VALIDATION_RULES.USER.FULL_NAME.MAX_LENGTH) return toast.error(`Full name is too long. Maximum ${VALIDATION_RULES.USER.FULL_NAME.MAX_LENGTH} characters allowed.`);
 
     return true;
   };
@@ -31,7 +40,13 @@ const SignUpPage = () => {
 
     const success = validateForm();
 
-    if (success === true) signup(formData);
+    if (success === true) {
+      const sanitizedEmail = validateAndSanitizeEmail(formData.email);
+      signup({
+        ...formData,
+        email: sanitizedEmail
+      });
+    }
   };
 
   return (
@@ -68,6 +83,9 @@ const SignUpPage = () => {
                   placeholder="John Doe"
                   value={formData.fullName}
                   onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                  aria-label="Full name"
+                  required
+                  maxLength={VALIDATION_RULES.USER.FULL_NAME.MAX_LENGTH}
                 />
               </div>
             </div>
@@ -86,6 +104,8 @@ const SignUpPage = () => {
                   placeholder="you@example.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  aria-label="Email address"
+                  required
                 />
               </div>
             </div>
@@ -104,6 +124,10 @@ const SignUpPage = () => {
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  aria-label="Password"
+                  required
+                  minLength={VALIDATION_RULES.USER.PASSWORD.MIN_LENGTH}
+                  maxLength={VALIDATION_RULES.USER.PASSWORD.MAX_LENGTH}
                 />
                 <button
                   type="button"

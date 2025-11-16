@@ -3,6 +3,8 @@ import { useAuthStore } from "../store/useAuthStore";
 import AuthImagePattern from "../components/AuthImagePattern";
 import { Link } from "react-router-dom";
 import { Eye, EyeOff, Loader2, Lock, Mail, MessageSquare } from "lucide-react";
+import { validateAndSanitizeEmail } from "../lib/sanitization";
+import { VALIDATION_RULES } from "../constants/validation";
 
 const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -14,7 +16,29 @@ const LoginPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    login(formData);
+    
+    // Basic validation
+    if (!formData.email.trim()) {
+      toast.error("Email is required");
+      return;
+    }
+    
+    if (!formData.password) {
+      toast.error("Password is required");
+      return;
+    }
+    
+    // Email format validation
+    const sanitizedEmail = validateAndSanitizeEmail(formData.email);
+    if (!sanitizedEmail) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    
+    login({
+      ...formData,
+      email: sanitizedEmail
+    });
   };
 
   return (
@@ -52,6 +76,9 @@ const LoginPage = () => {
                   placeholder="you@example.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  aria-label="Email address"
+                  required
+                  maxLength={VALIDATION_RULES.USER.EMAIL.MAX_LENGTH}
                 />
               </div>
             </div>
@@ -70,6 +97,9 @@ const LoginPage = () => {
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  aria-label="Password"
+                  required
+                  minLength={VALIDATION_RULES.USER.PASSWORD.MIN_LENGTH}
                 />
                 <button
                   type="button"
